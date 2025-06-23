@@ -2,11 +2,12 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  generateBlinkURL, 
-  generatePhantomURL, 
+import {
+  generateBlinkURL,
+  generatePhantomURL,
   generateBackpackURL,
-  validateSolanaAddress 
+  generateSolanaPayURL,  // Keep this for QR codes
+  validateSolanaAddress
 } from '../utils/generateBlink';
 import { Copy, ExternalLink, QrCode, Check, AlertCircle, Wallet } from 'lucide-react';
 
@@ -41,9 +42,10 @@ export default function BlinkForm() {
   const [message, setMessage] = useState('');
   
   // Generated URLs
-  const [solanaPayLink, setSolanaPayLink] = useState('');
-  const [phantomLink, setPhantomLink] = useState('');
-  const [backpackLink, setBackpackLink] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState(''); // For QR code (direct wallet)
+  const [blinkUrl, setBlinkUrl] = useState('');   // For clickable Blink
+  const [phantomUrl, setPhantomUrl] = useState(''); // For Phantom Blink
+  const [backpackUrl, setBackpackUrl] = useState(''); // For Backpack Blink
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState<{[key: string]: boolean}>({});
@@ -77,19 +79,25 @@ export default function BlinkForm() {
     setIsGenerating(true);
     
     try {
-      // Generate all different URL formats
+      // Generate QR code URL (direct wallet opening - unchanged)
+      const qrUrl = generateSolanaPayURL(recipient.trim(), amount, label.trim(), message.trim());
+      
+      // Generate Blink URLs (for clickable links)
       const solanaUrl = generateBlinkURL(recipient.trim(), amount, label.trim(), message.trim());
       const phantomUrl = generatePhantomURL(recipient.trim(), amount, label.trim(), message.trim());
       const backpackUrl = generateBackpackURL(recipient.trim(), amount, label.trim(), message.trim());
       
-      setSolanaPayLink(solanaUrl);
-      setPhantomLink(phantomUrl);
-      setBackpackLink(backpackUrl);
+      // Set the URLs
+      setQrCodeUrl(qrUrl);        // QR code uses direct Solana Pay URL
+      setBlinkUrl(solanaUrl);     // Clickable link uses Blink URL
+      setPhantomUrl(phantomUrl);  // Phantom Blink URL
+      setBackpackUrl(backpackUrl); // Backpack Blink URL
       
       console.log('Generated URLs:', {
-        solanaUrl,
-        phantomUrl,
-        backpackUrl,
+        qrUrl,      // Direct wallet opening
+        solanaUrl,  // Blink for social media
+        phantomUrl, // Phantom Blink
+        backpackUrl, // Backpack Blink
         amount: amount,
         recipient: recipient.trim()
       });
@@ -242,22 +250,22 @@ export default function BlinkForm() {
       </div>
 
       {/* Results */}
-      {solanaPayLink && (
+      {blinkUrl && (
         <div className="mt-8 space-y-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">🎉 Payment Links Generated!</h3>
             <p className="text-sm text-gray-600">Amount: <strong>{amount} SOL</strong></p>
           </div>
 
-          {/* Universal Solana Pay Link (Primary - works with all wallets) */}
+          {/* Universal Blink Link (Primary - works with all wallets) */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Wallet className="w-4 h-4" />
-                Universal Link (All Wallets):
+                Universal Blink (Social Media):
               </label>
               <button
-                onClick={() => testLink(solanaPayLink, 'Universal')}
+                onClick={() => testLink(blinkUrl, 'Universal Blink')}
                 className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
               >
                 <ExternalLink className="w-3 h-3" />
@@ -267,20 +275,20 @@ export default function BlinkForm() {
             <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg">
               <input
                 type="text"
-                value={solanaPayLink}
+                value={blinkUrl}
                 readOnly
                 className="flex-1 text-xs text-gray-600 bg-transparent outline-none font-mono"
               />
               <button
-                onClick={() => copyToClipboard(solanaPayLink, 'universal')}
+                onClick={() => copyToClipboard(blinkUrl, 'blink')}
                 className={`px-3 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
-                  copied.universal 
+                  copied.blink 
                     ? 'bg-green-100 text-green-700' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {copied.universal ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied.universal ? 'Copied!' : 'Copy'}
+                {copied.blink ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {copied.blink ? 'Copied!' : 'Copy'}
               </button>
             </div>
           </div>
@@ -297,9 +305,9 @@ export default function BlinkForm() {
             
             {showQR && (
               <div className="mt-6 inline-block p-4 bg-white rounded-lg shadow-sm">
-                <QRCodeDisplay value={solanaPayLink} size={200} />
+                <QRCodeDisplay value={qrCodeUrl} size={200} />
                 <p className="text-xs text-gray-500 mt-6">
-                  Scan with any Solana wallet app
+                  Scan with any Solana wallet app (Direct Payment)
                 </p>
               </div>
             )}
@@ -308,15 +316,15 @@ export default function BlinkForm() {
           {/* Wallet-Specific Links (Collapsible) */}
           <details className="mt-4">
             <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
-              Wallet-Specific Links (Advanced)
+              Wallet-Specific Blinks (Advanced)
             </summary>
             <div className="mt-4 space-y-3">
               {/* Phantom Specific */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-600">Phantom Wallet:</label>
+                  <label className="text-xs font-medium text-gray-600">Phantom Blink:</label>
                   <button
-                    onClick={() => testLink(phantomLink, 'Phantom')}
+                    onClick={() => testLink(phantomUrl, 'Phantom')}
                     className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded"
                   >
                     Test
@@ -325,17 +333,46 @@ export default function BlinkForm() {
                 <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded text-xs">
                   <input
                     type="text"
-                    value={phantomLink}
+                    value={phantomUrl}
                     readOnly
                     className="flex-1 text-gray-500 bg-transparent outline-none"
                   />
                   <button
-                    onClick={() => copyToClipboard(phantomLink, 'phantom')}
+                    onClick={() => copyToClipboard(phantomUrl, 'phantom')}
                     className={`px-2 py-1 rounded ${
                       copied.phantom ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200'
                     }`}
                   >
                     {copied.phantom ? '✓' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Backpack Specific */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-gray-600">Backpack Blink:</label>
+                  <button
+                    onClick={() => testLink(backpackUrl, 'Backpack')}
+                    className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded"
+                  >
+                    Test
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded text-xs">
+                  <input
+                    type="text"
+                    value={backpackUrl}
+                    readOnly
+                    className="flex-1 text-gray-500 bg-transparent outline-none"
+                  />
+                  <button
+                    onClick={() => copyToClipboard(backpackUrl, 'backpack')}
+                    className={`px-2 py-1 rounded ${
+                      copied.backpack ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    {copied.backpack ? '✓' : 'Copy'}
                   </button>
                 </div>
               </div>
