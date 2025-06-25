@@ -1,114 +1,213 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { generateBlinkAction } from '../..//utils/generateBlink';
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'GET') {
-    try {
-      const { recipient, amount, label, message, tags } = req.query;
-      
-      if (!recipient || !amount) {
-        return res.status(400).json({ error: 'Missing required parameters' });
-      }
-
-      const action = generateBlinkAction(
-        recipient as string,
-        parseFloat(amount as string),
-        label as string,
-        message as string,
-        tags ? (tags as string).split(',') : undefined
-      );
-
-      // Set proper headers for Actions
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      
-      return res.status(200).json(action);
-    } catch (error) {
-      console.error('Error in transfer action:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  } else if (req.method === 'OPTIONS') {
-    // Handle CORS preflight
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  } else {
-    res.setHeader('Allow', ['GET', 'OPTIONS']);
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-}
-
-// pages/api/actions/transfer/execute.ts
-import { NextApiRequest, NextApiResponse } from 'next';
 import { 
   Connection, 
   PublicKey, 
+  SystemProgram, 
   Transaction, 
-  SystemProgram,
   LAMPORTS_PER_SOL 
 } from '@solana/web3.js';
+import { NextRequest, NextResponse } from 'next/server';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'POST') {
-    try {
-      const { recipient, amount } = req.query;
-      const { account } = req.body; // The user's wallet address from the POST body
-      
-      if (!recipient || !amount || !account) {
-        return res.status(400).json({ error: 'Missing required parameters' });
-      }
+// Action metadata interface
+interface ActionGetResponse {
+  icon: string;
+  title: string;
+  description: string;
+  label: string;
+  links?: {
+    actions: Array<{
+      label: string;
+      href: string;
+      parameters?: Array<{
+        name: string;
+        label: string;
+        required?: boolean;
+      }>;
+    }>;
+  };
+}
 
-      // Create connection to Solana (use your preferred RPC)
-      const connection = new Connection(
-        process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
+// Transaction response interface
+interface ActionPostResponse {
+  transaction: string; // base64 encoded transaction
+  message?: string;
+}
+
+// Error response interface
+interface ActionError {
+  message: string;
+}
+
+// Headers for CORS and Solana Actions
+const headers = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Content-Encoding, Accept-Encoding',
+  'Content-Type': 'application/json',
+  'X-Action-Version': '2.1.3',
+  'X-Blockchain-Ids': 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+};
+
+// GET handler - Returns action metadata
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const recipient = searchParams.get('recipient');
+    const amount = searchParams.get('amount');
+    const label = searchParams.get('label') || 'Solana Transfer';
+    const message = searchParams.get('message') || '';
+
+    // Validate parameters
+    if (!recipient) {
+      return NextResponse.json(
+        { message: 'Recipient address is required' } as ActionError,
+        { status: 400, headers }
       );
-
-      // Create the transaction
-      const transaction = new Transaction();
-      
-      // Add transfer instruction
-      transaction.add(
-        SystemProgram.transfer({
-          fromPubkey: new PublicKey(account),
-          toPubkey: new PublicKey(recipient as string),
-          lamports: parseFloat(amount as string) * LAMPORTS_PER_SOL,
-        })
-      );
-
-      // Get recent blockhash
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(account);
-
-      // Serialize the transaction
-      const serializedTransaction = transaction.serialize({
-        requireAllSignatures: false,
-        verifySignatures: false,
-      });
-
-      // Set proper headers
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-      return res.status(200).json({
-        transaction: serializedTransaction.toString('base64'),
-        message: `Sending ${amount} SOL to ${recipient}`,
-      });
-    } catch (error) {
-      console.error('Error creating transaction:', error);
-      return res.status(500).json({ error: 'Failed to create transaction' });
     }
-  } else if (req.method === 'OPTIONS') {
-    // Handle CORS preflight
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  } else {
-    res.setHeader('Allow', ['POST', 'OPTIONS']);
-    return res.status(405).json({ error: 'Method not allowed' });
+
+    try {
+      new PublicKey(recipient);
+    } catch {
+      return NextResponse.json(
+        { message: 'Invalid recipient address' } as ActionError,
+        { status: 400, headers }
+      );
+    }
+
+    const amountSol = amount ? parseFloat(amount) : 0.001;
+
+    const response: ActionGetResponse = {
+      icon: 'https://ucarecdn.com/7aa46c85-08a4-4bc7-9376-88ec48bb1f43/-/preview/880x864/-/quality/smart/-/format/auto/',
+      title: `Send ${amountSol} SOL`,
+      description: message || `Send ${amountSol} SOL to ${recipient.slice(0, 4)}...${recipient.slice(-4)}`,
+      label: label,
+      links: {
+        actions: [
+          {
+            label: `Send ${amountSol} SOL`,
+            href: `/api/actions/transfer?recipient=${recipient}&amount=${amountSol}&label=${encodeURIComponent(label)}&message=${encodeURIComponent(message)}`,
+          }
+        ]
+      }
+    };
+
+    return NextResponse.json(response, { headers });
+  } catch (error) {
+    console.error('GET /api/actions/transfer error:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' } as ActionError,
+      { status: 500, headers }
+    );
   }
+}
+
+// POST handler - Creates and returns transaction
+export async function POST(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const body = await request.json();
+    
+    // Get parameters from URL
+    const recipient = searchParams.get('recipient');
+    const amount = searchParams.get('amount');
+    
+    // Validate required parameters
+    if (!recipient || !amount) {
+      return NextResponse.json(
+        { message: 'Recipient and amount are required' } as ActionError,
+        { status: 400, headers }
+      );
+    }
+
+    // Validate recipient address
+    let recipientPubkey: PublicKey;
+    try {
+      recipientPubkey = new PublicKey(recipient);
+    } catch {
+      return NextResponse.json(
+        { message: 'Invalid recipient address' } as ActionError,
+        { status: 400, headers }
+      );
+    }
+
+    // Validate sender (from request body)
+    if (!body.account) {
+      return NextResponse.json(
+        { message: 'Sender account is required' } as ActionError,
+        { status: 400, headers }
+      );
+    }
+
+    let senderPubkey: PublicKey;
+    try {
+      senderPubkey = new PublicKey(body.account);
+    } catch {
+      return NextResponse.json(
+        { message: 'Invalid sender address' } as ActionError,
+        { status: 400, headers }
+      );
+    }
+
+    const amountSol = parseFloat(amount);
+    if (amountSol <= 0) {
+      return NextResponse.json(
+        { message: 'Amount must be greater than 0' } as ActionError,
+        { status: 400, headers }
+      );
+    }
+
+    // Convert SOL to lamports
+    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
+
+    // Create connection (use your RPC endpoint)
+    const connection = new Connection(
+      process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+      'confirmed'
+    );
+
+    // Get recent blockhash
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+
+    // Create transfer instruction
+    const transferInstruction = SystemProgram.transfer({
+      fromPubkey: senderPubkey,
+      toPubkey: recipientPubkey,
+      lamports: lamports,
+    });
+
+    // Create transaction
+    const transaction = new Transaction({
+      feePayer: senderPubkey,
+      blockhash: blockhash,
+      lastValidBlockHeight: lastValidBlockHeight,
+    }).add(transferInstruction);
+
+    // Serialize transaction
+    const serializedTransaction = transaction.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    });
+
+    const base64Transaction = serializedTransaction.toString('base64');
+
+    const response: ActionPostResponse = {
+      transaction: base64Transaction,
+      message: `Transfer ${amountSol} SOL to ${recipient}`,
+    };
+
+    return NextResponse.json(response, { headers });
+  } catch (error) {
+    console.error('POST /api/actions/transfer error:', error);
+    return NextResponse.json(
+      { message: 'Failed to create transaction' } as ActionError,
+      { status: 500, headers }
+    );
+  }
+}
+
+// OPTIONS handler for CORS
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers,
+  });
 }

@@ -10,7 +10,7 @@ export interface BlinkParams {
 /**
  * Generate Solana Pay URL (works with all wallets including Phantom, Backpack, etc.)
  * This follows the official Solana Pay specification
- * KEEP THIS EXACTLY THE SAME - FOR QR CODES
+ * KEEP THIS EXACTLY THE SAME - FOR QR CODES AND DIRECT WALLET OPENING
  */
 export function generateSolanaPayURL(recipient: string, amount: number, label?: string, message?: string): string {
   try {
@@ -34,103 +34,98 @@ export function generateSolanaPayURL(recipient: string, amount: number, label?: 
 }
 
 /**
- * Generate proper Solana Action Blink URL (for social media sharing)
- * This creates links that show rich previews and use your API
+ * Generate Phantom deep link that opens directly in Phantom wallet
  */
-export function generateActionBlinkURL(baseUrl: string, recipient: string, amount: number, label?: string, message?: string): string {
-  try {
-    // Validate recipient address
-    new PublicKey(recipient);
-    
-    // Your API action URL with parameters
-    const params = new URLSearchParams();
-    params.append('recipient', recipient);
-    params.append('amount', amount.toString());
-    if (label) params.append('label', label);
-    if (message) params.append('message', message);
-    
-    // Your action API endpoint
-    const actionUrl = `${baseUrl}/api/action/transfer?${params.toString()}`;
-    
-    // Proper Blink URL format using dial.to
-    return `https://dial.to/?action=solana-action:${encodeURIComponent(actionUrl)}`;
-  } catch (error) {
-    console.error('Error generating Action Blink URL:', error);
-    throw new Error('Invalid recipient address');
-  }
+export function generatePhantomDeepLink(recipient: string, amount: number, label?: string, message?: string): string {
+  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
+  return `https://phantom.app/ul/v1/browse/${encodeURIComponent(solanaPayUrl)}`;
 }
 
 /**
- * Generate Phantom-specific Blink URL
+ * Generate Backpack deep link that opens directly in Backpack wallet
  */
-export function generatePhantomBlinkURL(baseUrl: string, recipient: string, amount: number, label?: string, message?: string): string {
-  try {
-    new PublicKey(recipient);
-    
-    const params = new URLSearchParams();
-    params.append('recipient', recipient);
-    params.append('amount', amount.toString());
-    if (label) params.append('label', label);
-    if (message) params.append('message', message);
-    
-    const actionUrl = `${baseUrl}/api/action/transfer?${params.toString()}`;
-    
-    // Phantom-specific Blink format
-    return `https://phantom.app/ul/browse/${encodeURIComponent(actionUrl)}`;
-  } catch (error) {
-    console.error('Error generating Phantom Blink URL:', error);
-    throw new Error('Invalid recipient address');
-  }
+export function generateBackpackDeepLink(recipient: string, amount: number, label?: string, message?: string): string {
+  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
+  // Backpack uses a similar format to Phantom
+  return `https://backpack.app/ul/v1/browse/${encodeURIComponent(solanaPayUrl)}`;
 }
 
 /**
- * BACKWARD COMPATIBILITY - Keep your old function names working
- * These now generate proper Blinks instead of direct payment URLs
+ * Generate Solflare deep link that opens directly in Solflare wallet
+ */
+export function generateSolflareDeepLink(recipient: string, amount: number, label?: string, message?: string): string {
+  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
+  return `https://solflare.com/ul/v1/browse/${encodeURIComponent(solanaPayUrl)}`;
+}
+
+/**
+ * Generate Glow deep link that opens directly in Glow wallet
+ */
+export function generateGlowDeepLink(recipient: string, amount: number, label?: string, message?: string): string {
+  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
+  return `https://glow.app/ul/v1/browse/${encodeURIComponent(solanaPayUrl)}`;
+}
+
+/**
+ * Generate universal deep link that should work with most Solana wallets
+ * This creates a web page that attempts to detect and redirect to the user's wallet
+ */
+export function generateUniversalDeepLink(recipient: string, amount: number, label?: string, message?: string): string {
+  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
+  // This creates a URL that can be used to create a universal redirect page
+  return `https://solana.com/pay?url=${encodeURIComponent(solanaPayUrl)}`;
+}
+
+/**
+ * BACKWARD COMPATIBILITY - Now uses Phantom deep link as default
  */
 export function generateBlinkURL(recipient: string, amount: number, label?: string, message?: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  return generateActionBlinkURL(baseUrl, recipient, amount, label, message);
+  return generatePhantomDeepLink(recipient, amount, label, message);
 }
 
 export function generatePhantomURL(recipient: string, amount: number, label?: string, message?: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  return generatePhantomBlinkURL(baseUrl, recipient, amount, label, message);
+  return generatePhantomDeepLink(recipient, amount, label, message);
 }
 
 export function generateBackpackURL(recipient: string, amount: number, label?: string, message?: string): string {
-  // Backpack supports universal Blinks
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  return generateActionBlinkURL(baseUrl, recipient, amount, label, message);
+  return generateBackpackDeepLink(recipient, amount, label, message);
 }
 
 /**
- * Generate all links at once (optional - for future use)
+ * Generate all wallet deep links at once
  */
-export function generateAllLinks(baseUrl: string, recipient: string, amount: number, label?: string, message?: string) {
+export function generateAllWalletLinks(recipient: string, amount: number, label?: string, message?: string) {
+  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
+  
   return {
-    universalBlink: generateActionBlinkURL(baseUrl, recipient, amount, label, message),
-    phantomBlink: generatePhantomBlinkURL(baseUrl, recipient, amount, label, message),
-    qrCode: generateSolanaPayURL(recipient, amount, label, message)
+    // Universal QR code URL (works with all wallets)
+    qrCodeUrl: solanaPayUrl,
+    
+    // Wallet-specific deep links that open directly in the wallet
+    phantom: generatePhantomDeepLink(recipient, amount, label, message),
+    backpack: generateBackpackDeepLink(recipient, amount, label, message),
+    solflare: generateSolflareDeepLink(recipient, amount, label, message),
+    glow: generateGlowDeepLink(recipient, amount, label, message),
+    universal: generateUniversalDeepLink(recipient, amount, label, message),
+    
+    // Raw Solana Pay URL (for QR codes and manual wallet entry)
+    solanaPayUrl
   };
 }
 
 /**
- * Generate a transfer instruction URL for web-based wallets
+ * Generate a simple transfer URL for web interfaces
  */
-export function generateWebWalletURL(recipient: string, amount: number, label?: string): string {
+export function generateWebTransferURL(recipient: string, amount: number): string {
   try {
     new PublicKey(recipient);
-    const params = new URLSearchParams({
-      recipient,
-      amount: amount.toString(),
-      ...(label && { reference: label })
-    });
-    return `https://solscan.io/tx/new?${params.toString()}`;
+    return `https://solscan.io/account/${recipient}`;
   } catch (error) {
     throw new Error('Invalid recipient address');
   }
 }
 
+// Utility functions
 export function validateSolanaAddress(address: string): boolean {
   try {
     new PublicKey(address);
@@ -144,7 +139,6 @@ export function formatSolAmount(amount: number): string {
   return `${amount} SOL`;
 }
 
-// Utility functions for amount conversion (if needed elsewhere)
 export function lamportsToSol(lamports: number): number {
   return lamports / 1_000_000_000;
 }
@@ -152,3 +146,23 @@ export function lamportsToSol(lamports: number): number {
 export function solToLamports(sol: number): number {
   return Math.floor(sol * 1_000_000_000);
 }
+
+/**
+ * INSTRUCTIONS FOR USING DEEP LINKS:
+ * 
+ * 1. Deep links open directly in the wallet app (mobile) or extension (desktop)
+ * 2. They bypass the need for complex Blink Actions APIs
+ * 3. Much more reliable than custom Blinks
+ * 4. Work immediately without backend setup
+ * 
+ * 5. Usage patterns:
+ *    - QR codes: Use the raw Solana Pay URL
+ *    - Click links: Use wallet-specific deep links
+ *    - Universal links: Use the universal deep link for auto-detection
+ * 
+ * 6. Deep links are perfect for:
+ *    - Social media sharing
+ *    - Direct wallet opening
+ *    - Mobile-first experiences
+ *    - Simple payment flows
+ */
