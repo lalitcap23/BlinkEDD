@@ -121,6 +121,7 @@ const getWalletEmoji = (walletName: string) => {
     case 'backpack': return '🎒';
     case 'solflare': return '☀️';
     case 'glow': return '✨';
+    case 'any wallet': return '🔗';
     default: return '🔗';
   }
 };
@@ -146,6 +147,11 @@ const getGradientColors = (walletName: string) => {
       return { 
         normal: '#3b82f6 0%, #1d4ed8 100%', 
         hover: '#1d4ed8 0%, #1e40af 100%' 
+      };
+    case 'any wallet':
+      return {
+        normal: '#9945FF 0%, #14F195 100%',
+        hover: '#8b5cf6 0%, #10b981 100%'
       };
     default: 
       return { 
@@ -410,83 +416,60 @@ export default function BlinkForm() {
             )}
           </div>
 
-          {/* UPDATED: Clickable Wallet Buttons */}
+          {/* Universal Wallet Button */}
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-4 text-center">
-              {isMobile ? '📱 Click to Open Wallet Apps:' : '💻 Clickable Payment Links:'}
+              {isMobile ? '📱 Click to Open Wallet App:' : '💻 Clickable Payment Link:'}
             </h4>
             <div className="space-y-4">
               
               {/* Universal Solana Pay Button */}
-              <div className="border-b border-gray-200 pb-4">
-                <ClickableDeepLinkButton
-                  deepLink={qrCodeUrl}
-                  walletName="Any Wallet"
-                  color="bg-gradient-to-r from-gray-600 to-gray-700"
-                  isMobile={isMobile}
-                  onCopy={copyToClipboard}
-                />
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  ⭐ Universal link - works with all Solana wallets
-                </p>
+              <ClickableDeepLinkButton
+                deepLink={qrCodeUrl}
+                walletName="Any Wallet"
+                color="bg-gradient-to-r from-gray-600 to-gray-700"
+                isMobile={isMobile}
+                onCopy={copyToClipboard}
+              />
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                ⭐ Universal link - works with all Solana wallets
+              </p>
+
+              {/* Universal Link Display */}
+              <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <h5 className="text-sm font-semibold text-gray-700 mb-2">Universal Wallet Link:</h5>
+                <div className="bg-white p-3 rounded border font-mono text-xs break-all text-gray-600">
+                  {qrCodeUrl}
+                </div>
+                <button
+                  onClick={() => copyToClipboard(qrCodeUrl, 'universal')}
+                  className="mt-2 w-full px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded text-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  {copied.universal ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied.universal ? 'Copied!' : 'Copy Universal Link'}
+                </button>
               </div>
-
-              {/* Phantom Button */}
-              <ClickableDeepLinkButton
-                deepLink={phantomLink}
-                walletName="Phantom"
-                color="bg-gradient-to-r from-purple-600 to-purple-700"
-                isMobile={isMobile}
-                onCopy={copyToClipboard}
-              />
-
-              {/* Backpack Button */}
-              <ClickableDeepLinkButton
-                deepLink={backpackLink}
-                walletName="Backpack"
-                color="bg-gradient-to-r from-orange-500 to-orange-600"
-                isMobile={isMobile}
-                onCopy={copyToClipboard}
-              />
-
-              {/* Solflare Button */}
-              <ClickableDeepLinkButton
-                deepLink={solflareLink}
-                walletName="Solflare"
-                color="bg-gradient-to-r from-yellow-500 to-yellow-600"
-                isMobile={isMobile}
-                onCopy={copyToClipboard}
-              />
-
-              {/* Glow Button */}
-              <ClickableDeepLinkButton
-                deepLink={glowLink}
-                walletName="Glow"
-                color="bg-gradient-to-r from-blue-500 to-blue-600"
-                isMobile={isMobile}
-                onCopy={copyToClipboard}
-              />
 
             </div>
           </div>
 
           {/* Updated Usage Instructions */}
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="text-sm font-semibold text-blue-800 mb-2">✨ How to use these clickable links:</h4>
+            <h4 className="text-sm font-semibold text-blue-800 mb-2">✨ How to use this universal wallet link:</h4>
             <ul className="text-xs text-blue-700 space-y-1">
               {isMobile ? (
                 <>
-                  <li>• <strong>Direct Wallet Opening:</strong> Tap any colored button to open that wallet app instantly</li>
-                  <li>• <strong>Universal Button:</strong> "Any Wallet" works with all Solana wallet apps</li>
-                  <li>• <strong>Share Links:</strong> Copy any link to share via WhatsApp, Telegram, email, etc.</li>
-                  <li>• <strong>QR Alternative:</strong> Use QR code if buttons don't work</li>
+                  <li>• <strong>Universal Button:</strong> Tap "Any Wallet" to open your default Solana wallet app</li>
+                  <li>• <strong>Works with All Wallets:</strong> Compatible with Phantom, Backpack, Solflare, Glow, and more</li>
+                  <li>• <strong>Share Link:</strong> Copy the universal link to share via WhatsApp, Telegram, email, etc.</li>
+                  <li>• <strong>QR Alternative:</strong> Use QR code if the button doesn't work</li>
                 </>
               ) : (
                 <>
-                  <li>• <strong>Mobile Users:</strong> When shared, these buttons will open wallet apps directly on mobile</li>
-                  <li>• <strong>Desktop Users:</strong> Buttons show QR codes or redirect appropriately</li>
-                  <li>• <strong>Share Anywhere:</strong> Copy links for social media, email, messaging apps</li>
-                  <li>• <strong>Universal:</strong> "Any Wallet" button works best for sharing</li>
+                  <li>• <strong>Mobile Compatibility:</strong> When shared, this button opens wallet apps directly on mobile</li>
+                  <li>• <strong>Desktop Support:</strong> Shows QR code or redirects appropriately on desktop</li>
+                  <li>• <strong>Universal Link:</strong> Works with all Solana wallets - no need for wallet-specific links</li>
+                  <li>• <strong>Easy Sharing:</strong> Copy the link for social media, email, messaging apps</li>
                 </>
               )}
             </ul>
