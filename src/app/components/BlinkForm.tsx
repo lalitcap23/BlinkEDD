@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import {
   generateSolanaPayURL,
-  generatePhantomDeepLink,
-  generateBackpackDeepLink,
-  generateSolflareDeepLink,
-  generateGlowDeepLink,
-  generateUniversalDeepLink,
-  validateSolanaAddress
+  generatePhantomMobileDeepLink,
+  generateBackpackMobileDeepLink,
+  generateSolflareMobileDeepLink,
+  generateGlowMobileDeepLink,
+  generateAllMobileWalletLinks,
+  validateSolanaAddress,
+  detectMobilePlatform
 } from '../utils/generateBlink';
 import { Copy, ExternalLink, QrCode, Check, AlertCircle, Wallet, Smartphone } from 'lucide-react';
 
@@ -36,6 +37,124 @@ const QRCodeDisplay = ({ value, size = 200 }: { value: string; size?: number }) 
   );
 };
 
+// NEW: Clickable Deep Link Button Component
+const ClickableDeepLinkButton = ({ 
+  deepLink, 
+  walletName, 
+  color, 
+  isMobile,
+  onCopy 
+}: { 
+  deepLink: string; 
+  walletName: string; 
+  color: string;
+  isMobile: boolean;
+  onCopy: (link: string, wallet: string) => void;
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log(`Opening ${walletName} with:`, deepLink);
+    
+    if (isMobile) {
+      // Direct deep link opening for mobile
+      window.location.href = deepLink;
+    } else {
+      // For desktop, open in new tab (shows QR code)
+      window.open(deepLink, '_blank');
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Clickable Button */}
+      <a
+        href={deepLink}
+        onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`
+          block w-full p-4 rounded-xl text-white font-semibold text-center
+          transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg
+          ${color} ${isHovered ? 'shadow-lg' : 'shadow-sm'}
+        `}
+        style={{
+          background: isHovered 
+            ? `linear-gradient(135deg, ${getGradientColors(walletName).hover})` 
+            : `linear-gradient(135deg, ${getGradientColors(walletName).normal})`,
+        }}
+      >
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-lg">{getWalletEmoji(walletName)}</span>
+          <span>Open {walletName} Wallet</span>
+          <ExternalLink className="w-4 h-4" />
+        </div>
+        <div className="text-xs mt-1 opacity-80">
+          {isMobile ? 'Tap to open app directly' : 'Click to open payment'}
+        </div>
+      </a>
+
+      {/* Copy Link Row */}
+      <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg">
+        <input
+          type="text"
+          value={deepLink}
+          readOnly
+          className="flex-1 text-gray-500 bg-transparent outline-none font-mono text-xs"
+        />
+        <button
+          onClick={() => onCopy(deepLink, walletName.toLowerCase())}
+          className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs transition-colors"
+        >
+          <Copy className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Helper functions for wallet styling
+const getWalletEmoji = (walletName: string) => {
+  switch (walletName.toLowerCase()) {
+    case 'phantom': return '👻';
+    case 'backpack': return '🎒';
+    case 'solflare': return '☀️';
+    case 'glow': return '✨';
+    default: return '🔗';
+  }
+};
+
+const getGradientColors = (walletName: string) => {
+  switch (walletName.toLowerCase()) {
+    case 'phantom': 
+      return { 
+        normal: '#6366f1 0%, #8b5cf6 100%', 
+        hover: '#5b21b6 0%, #7c3aed 100%' 
+      };
+    case 'backpack': 
+      return { 
+        normal: '#f59e0b 0%, #d97706 100%', 
+        hover: '#d97706 0%, #b45309 100%' 
+      };
+    case 'solflare': 
+      return { 
+        normal: '#eab308 0%, #ca8a04 100%', 
+        hover: '#ca8a04 0%, #a16207 100%' 
+      };
+    case 'glow': 
+      return { 
+        normal: '#3b82f6 0%, #1d4ed8 100%', 
+        hover: '#1d4ed8 0%, #1e40af 100%' 
+      };
+    default: 
+      return { 
+        normal: '#6b7280 0%, #4b5563 100%', 
+        hover: '#4b5563 0%, #374151 100%' 
+      };
+  }
+};
+
 export default function BlinkForm() {
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState<number>(0.001);
@@ -44,7 +163,6 @@ export default function BlinkForm() {
   
   // Generated URLs
   const [qrCodeUrl, setQrCodeUrl] = useState(''); // For QR code (direct wallet)
-  const [universalLink, setUniversalLink] = useState(''); // Universal deep link
   const [phantomLink, setPhantomLink] = useState(''); // Phantom deep link
   const [backpackLink, setBackpackLink] = useState(''); // Backpack deep link
   const [solflareLink, setSolflareLink] = useState(''); // Solflare deep link
@@ -54,6 +172,7 @@ export default function BlinkForm() {
   const [copied, setCopied] = useState<{[key: string]: boolean}>({});
   const [error, setError] = useState('');
   const [showQR, setShowQR] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const handleGenerate = async () => {
     setError('');
@@ -82,31 +201,36 @@ export default function BlinkForm() {
     setIsGenerating(true);
     
     try {
+      // Check if mobile
+      const platform = detectMobilePlatform();
+      setIsMobile(platform.isMobile);
+
       // Generate QR code URL (direct wallet opening)
       const qrUrl = generateSolanaPayURL(recipient.trim(), amount, label.trim(), message.trim());
-      
-      // Generate deep links for each wallet
-      const universalUrl = generateUniversalDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-      const phantomUrl = generatePhantomDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-      const backpackUrl = generateBackpackDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-      const solflareUrl = generateSolflareDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-      const glowUrl = generateGlowDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-      
-      // Set the URLs
       setQrCodeUrl(qrUrl);
-      setUniversalLink(universalUrl);
-      setPhantomLink(phantomUrl);
-      setBackpackLink(backpackUrl);
-      setSolflareLink(solflareUrl);
-      setGlowLink(glowUrl);
+
+      if (platform.isMobile) {
+        // Generate mobile deep links for each wallet
+        const phantomUrl = generatePhantomMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
+        const backpackUrl = generateBackpackMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
+        const solflareUrl = generateSolflareMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
+        const glowUrl = generateGlowMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
+        
+        setPhantomLink(phantomUrl);
+        setBackpackLink(backpackUrl);
+        setSolflareLink(solflareUrl);
+        setGlowLink(glowUrl);
+      } else {
+        // On desktop, all links are the same QR code URL
+        setPhantomLink(qrUrl);
+        setBackpackLink(qrUrl);
+        setSolflareLink(qrUrl);
+        setGlowLink(qrUrl);
+      }
       
-      console.log('Generated Deep Links:', {
+      console.log('Generated Links:', {
         qrUrl,
-        universalUrl,
-        phantomUrl,
-        backpackUrl,
-        solflareUrl,
-        glowUrl,
+        platform,
         amount: amount,
         recipient: recipient.trim()
       });
@@ -142,18 +266,13 @@ export default function BlinkForm() {
     }
   };
 
-  const testLink = (url: string, walletName: string) => {
-    console.log(`Opening ${walletName} deep link:`, url);
-    window.open(url, '_blank');
-  };
-
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white/90 backdrop-blur-sm shadow-2xl rounded-2xl border border-white/20">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
           ⚡ Solana Payment Link Generator
         </h1>
-        <p className="text-gray-600">Create direct wallet links that open instantly in any Solana wallet</p>
+        <p className="text-gray-600">Create clickable wallet links that open instantly in any Solana wallet</p>
         <div className="flex justify-center gap-2 mt-2 text-xs text-gray-500">
           <span>✅ Phantom</span>
           <span>✅ Backpack</span>
@@ -172,7 +291,7 @@ export default function BlinkForm() {
           <input
             type="text"
             placeholder="Enter Solana wallet address (44 characters)"
-            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-sm font-mono"
+            className="w-full border text-black border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-sm font-mono"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
           />
@@ -189,7 +308,7 @@ export default function BlinkForm() {
           <input
             type="number"
             placeholder="0.001"
-            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-black"
             value={amount}
             onChange={(e) => {
               const value = parseFloat(e.target.value);
@@ -212,7 +331,7 @@ export default function BlinkForm() {
           <input
             type="text"
             placeholder="e.g., Buy me a coffee, Tip for content"
-            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-black"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
@@ -225,7 +344,7 @@ export default function BlinkForm() {
           </label>
           <textarea
             placeholder="Add a personal message..."
-            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+            className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none text-black"
             rows={3}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -254,55 +373,21 @@ export default function BlinkForm() {
           ) : (
             <>
               <Smartphone className="w-5 h-5" />
-              Generate Wallet Links
+              Generate Clickable Wallet Links
             </>
           )}
         </button>
       </div>
 
       {/* Results */}
-      {universalLink && (
+      {qrCodeUrl && (
         <div className="mt-8 space-y-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">🎉 Payment Links Generated!</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">🎉 Clickable Payment Links Generated!</h3>
             <p className="text-sm text-gray-600">Amount: <strong>{amount} SOL</strong></p>
-            <p className="text-xs text-gray-500 mt-1">Click any link to open directly in that wallet</p>
-          </div>
-
-          {/* Universal Deep Link (Primary) */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Wallet className="w-4 h-4" />
-                Universal Link (Auto-detects wallet):
-              </label>
-              <button
-                onClick={() => testLink(universalLink, 'Universal')}
-                className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Open
-              </button>
-            </div>
-            <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg">
-              <input
-                type="text"
-                value={universalLink}
-                readOnly
-                className="flex-1 text-xs text-gray-600 bg-transparent outline-none font-mono"
-              />
-              <button
-                onClick={() => copyToClipboard(universalLink, 'universal')}
-                className={`px-3 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
-                  copied.universal 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {copied.universal ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied.universal ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {isMobile ? 'Tap any button to open directly in that wallet app' : 'Click any button to open payment (mobile users will get direct wallet opening)'}
+            </p>
           </div>
 
           {/* QR Code Section */}
@@ -312,7 +397,7 @@ export default function BlinkForm() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-lg transition-colors text-sm font-medium"
             >
               <QrCode className="w-4 h-4" />
-              {showQR ? 'Hide QR Code' : 'Show QR Code'}
+              {showQR ? 'Hide QR Code' : 'Show QR Code (Alternative)'}
             </button>
             
             {showQR && (
@@ -325,152 +410,97 @@ export default function BlinkForm() {
             )}
           </div>
 
-          {/* Wallet-Specific Deep Links */}
+          {/* UPDATED: Clickable Wallet Buttons */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">Wallet-Specific Links:</h4>
-            <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4 text-center">
+              {isMobile ? '📱 Click to Open Wallet Apps:' : '💻 Clickable Payment Links:'}
+            </h4>
+            <div className="space-y-4">
               
-              {/* Phantom Link */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                    Phantom:
-                  </label>
-                  <button
-                    onClick={() => testLink(phantomLink, 'Phantom')}
-                    className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded transition-colors"
-                  >
-                    Open
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded text-xs">
-                  <input
-                    type="text"
-                    value={phantomLink}
-                    readOnly
-                    className="flex-1 text-gray-500 bg-transparent outline-none font-mono"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(phantomLink, 'phantom')}
-                    className={`px-2 py-1 rounded transition-colors ${
-                      copied.phantom ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                  >
-                    {copied.phantom ? '✓' : 'Copy'}
-                  </button>
-                </div>
+              {/* Universal Solana Pay Button */}
+              <div className="border-b border-gray-200 pb-4">
+                <ClickableDeepLinkButton
+                  deepLink={qrCodeUrl}
+                  walletName="Any Wallet"
+                  color="bg-gradient-to-r from-gray-600 to-gray-700"
+                  isMobile={isMobile}
+                  onCopy={copyToClipboard}
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  ⭐ Universal link - works with all Solana wallets
+                </p>
               </div>
 
-              {/* Backpack Link */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                    Backpack:
-                  </label>
-                  <button
-                    onClick={() => testLink(backpackLink, 'Backpack')}
-                    className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-2 py-1 rounded transition-colors"
-                  >
-                    Open
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded text-xs">
-                  <input
-                    type="text"
-                    value={backpackLink}
-                    readOnly
-                    className="flex-1 text-gray-500 bg-transparent outline-none font-mono"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(backpackLink, 'backpack')}
-                    className={`px-2 py-1 rounded transition-colors ${
-                      copied.backpack ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                  >
-                    {copied.backpack ? '✓' : 'Copy'}
-                  </button>
-                </div>
-              </div>
+              {/* Phantom Button */}
+              <ClickableDeepLinkButton
+                deepLink={phantomLink}
+                walletName="Phantom"
+                color="bg-gradient-to-r from-purple-600 to-purple-700"
+                isMobile={isMobile}
+                onCopy={copyToClipboard}
+              />
 
-              {/* Solflare Link */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    Solflare:
-                  </label>
-                  <button
-                    onClick={() => testLink(solflareLink, 'Solflare')}
-                    className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-2 py-1 rounded transition-colors"
-                  >
-                    Open
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded text-xs">
-                  <input
-                    type="text"
-                    value={solflareLink}
-                    readOnly
-                    className="flex-1 text-gray-500 bg-transparent outline-none font-mono"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(solflareLink, 'solflare')}
-                    className={`px-2 py-1 rounded transition-colors ${
-                      copied.solflare ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                  >
-                    {copied.solflare ? '✓' : 'Copy'}
-                  </button>
-                </div>
-              </div>
+              {/* Backpack Button */}
+              <ClickableDeepLinkButton
+                deepLink={backpackLink}
+                walletName="Backpack"
+                color="bg-gradient-to-r from-orange-500 to-orange-600"
+                isMobile={isMobile}
+                onCopy={copyToClipboard}
+              />
 
-              {/* Glow Link */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    Glow:
-                  </label>
-                  <button
-                    onClick={() => testLink(glowLink, 'Glow')}
-                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded transition-colors"
-                  >
-                    Open
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded text-xs">
-                  <input
-                    type="text"
-                    value={glowLink}
-                    readOnly
-                    className="flex-1 text-gray-500 bg-transparent outline-none font-mono"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(glowLink, 'glow')}
-                    className={`px-2 py-1 rounded transition-colors ${
-                      copied.glow ? 'bg-green-100 text-green-700' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                  >
-                    {copied.glow ? '✓' : 'Copy'}
-                  </button>
-                </div>
-              </div>
+              {/* Solflare Button */}
+              <ClickableDeepLinkButton
+                deepLink={solflareLink}
+                walletName="Solflare"
+                color="bg-gradient-to-r from-yellow-500 to-yellow-600"
+                isMobile={isMobile}
+                onCopy={copyToClipboard}
+              />
+
+              {/* Glow Button */}
+              <ClickableDeepLinkButton
+                deepLink={glowLink}
+                walletName="Glow"
+                color="bg-gradient-to-r from-blue-500 to-blue-600"
+                isMobile={isMobile}
+                onCopy={copyToClipboard}
+              />
 
             </div>
           </div>
 
-          {/* Usage Instructions */}
+          {/* Updated Usage Instructions */}
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="text-sm font-semibold text-blue-800 mb-2">How to use:</h4>
+            <h4 className="text-sm font-semibold text-blue-800 mb-2">✨ How to use these clickable links:</h4>
             <ul className="text-xs text-blue-700 space-y-1">
-              <li>• <strong>Universal Link:</strong> Works with any Solana wallet, auto-detects installed wallets</li>
-              <li>• <strong>Wallet-Specific Links:</strong> Opens directly in the specified wallet</li>
-              <li>• <strong>QR Code:</strong> Scan with any Solana wallet mobile app</li>
-              <li>• <strong>Share:</strong> Copy any link to share via social media, email, or messaging</li>
+              {isMobile ? (
+                <>
+                  <li>• <strong>Direct Wallet Opening:</strong> Tap any colored button to open that wallet app instantly</li>
+                  <li>• <strong>Universal Button:</strong> "Any Wallet" works with all Solana wallet apps</li>
+                  <li>• <strong>Share Links:</strong> Copy any link to share via WhatsApp, Telegram, email, etc.</li>
+                  <li>• <strong>QR Alternative:</strong> Use QR code if buttons don't work</li>
+                </>
+              ) : (
+                <>
+                  <li>• <strong>Mobile Users:</strong> When shared, these buttons will open wallet apps directly on mobile</li>
+                  <li>• <strong>Desktop Users:</strong> Buttons show QR codes or redirect appropriately</li>
+                  <li>• <strong>Share Anywhere:</strong> Copy links for social media, email, messaging apps</li>
+                  <li>• <strong>Universal:</strong> "Any Wallet" button works best for sharing</li>
+                </>
+              )}
             </ul>
           </div>
+
+          {/* Copy Status Indicators */}
+          {Object.keys(copied).some(key => copied[key]) && (
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                <Check className="w-3 h-3" />
+                Link copied to clipboard!
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
