@@ -11,30 +11,27 @@ export default function PayClient() {
   const label = searchParams.get('label') || '';
   const buttonContainerRef = useRef<HTMLDivElement>(null);
 
- useEffect(() => {
-  if (!to || !amount || amount <= 0) {
-    if (buttonContainerRef.current) {
-      buttonContainerRef.current.innerHTML = '<p style="color: red;">Invalid payment parameters</p>';
-    }
-    return;
-  }
-  
-  try {
+  useEffect(() => {
+    if (!to || !amount) return;
+
     const button = createUniversalPaymentButton({
       recipient: to,
       amount,
       label,
       message: 'You are awesome!'
     });
-    
+
     if (buttonContainerRef.current) {
-      buttonContainerRef.current.innerHTML = '';
+      buttonContainerRef.current.innerHTML = ''; // Clear any previous buttons
       buttonContainerRef.current.appendChild(button);
     }
-  } catch (error) {
-    console.error('Error creating payment button:', error);
-    if (buttonContainerRef.current) {
-      buttonContainerRef.current.innerHTML = '<p style="color: red;">Error creating payment button</p>';
-    }
-  }
-}, [to, amount, label]);}
+  }, [to, amount, label]);
+
+  return (
+    <div style={{ backgroundColor: 'white', color: 'black', height: '100vh', padding: '2rem' }}>
+      <h1>Pay Page</h1>
+      <div ref={buttonContainerRef} />
+      <div id="status" style={{ marginTop: '1rem', fontSize: '14px', color: '#666' }} />
+    </div>
+  );
+}
