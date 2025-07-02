@@ -7,11 +7,14 @@ import {
   generateBackpackMobileDeepLink,
   generateSolflareMobileDeepLink,
   generateGlowMobileDeepLink,
-  generateAllMobileWalletLinks,
+  generateUniversalPaymentLink,
+  handleUniversalPayment,
   validateSolanaAddress,
-  detectMobilePlatform
+  detectMobilePlatform,
+  detectAvailableWallets,
+  formatSolAmount
 } from '../utils/generateBlink';
-import { Copy, ExternalLink, QrCode, Check, AlertCircle, Wallet, Smartphone } from 'lucide-react';
+import { Copy, ExternalLink, QrCode, Check, AlertCircle, Wallet, Smartphone, Globe } from 'lucide-react';
 
 // QR Code component - uses the universal Solana Pay URL for maximum compatibility
 const QRCodeDisplay = ({ value, size = 200 }: { value: string; size?: number }) => {
@@ -37,47 +40,97 @@ const QRCodeDisplay = ({ value, size = 200 }: { value: string; size?: number }) 
   );
 };
 
-// NEW: Clickable Deep Link Button Component
+// Enhanced Clickable Deep Link Button Component with Universal Payment Handler
 const ClickableDeepLinkButton = ({ 
-  deepLink, 
+  recipient,
+  amount,
+  label,
+  message,
   walletName, 
-  color, 
   isMobile,
-  onCopy 
+  onCopy,
+  onStatusUpdate
 }: { 
-  deepLink: string; 
+  recipient: string;
+  amount: number;
+  label?: string;
+  message?: string;
   walletName: string; 
-  color: string;
   isMobile: boolean;
   onCopy: (link: string, wallet: string) => void;
+  onStatusUpdate: (status: string) => void;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log(`Opening ${walletName} with:`, deepLink);
+    setIsProcessing(true);
+    onStatusUpdate(`Opening ${walletName}...`);
     
-    if (isMobile) {
-      // Direct deep link opening for mobile
-      window.location.href = deepLink;
-    } else {
-      // For desktop, open in new tab (shows QR code)
-      window.open(deepLink, '_blank');
+    try {
+      if (walletName.toLowerCase() === 'any wallet' || walletName.toLowerCase() === 'universal') {
+        // Use the universal payment handler
+        const result = await handleUniversalPayment(recipient, amount, label, message);
+        
+        if (result.success) {
+          onStatusUpdate(`✅ ${walletName} opened successfully!`);
+        } else {
+          onStatusUpdate(`❌ ${result.error || 'Failed to open wallet'}`);
+        }
+      } else {
+        // Use specific wallet handler
+        const result = await handleUniversalPayment(recipient, amount, label, message, walletName.toLowerCase());
+        
+        if (result.success) {
+          onStatusUpdate(`✅ ${walletName} opened successfully!`);
+        } else {
+          onStatusUpdate(`❌ ${walletName} not found. Try installing it first.`);
+          if (result.fallbackUrl && confirm(`Install ${walletName}?`)) {
+            window.open(result.fallbackUrl, '_blank');
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error opening ${walletName}:`, error);
+      onStatusUpdate(`❌ Error opening ${walletName}`);
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => onStatusUpdate(''), 3000);
     }
   };
+
+  // Generate deep link for display purposes
+  const getDeepLink = () => {
+    switch (walletName.toLowerCase()) {
+      case 'phantom':
+        return generatePhantomMobileDeepLink(recipient, amount, label, message);
+      case 'backpack':
+        return generateBackpackMobileDeepLink(recipient, amount, label, message);
+      case 'solflare':
+        return generateSolflareMobileDeepLink(recipient, amount, label, message);
+      case 'glow':
+        return generateGlowMobileDeepLink(recipient, amount, label, message);
+      default:
+        return generateSolanaPayURL(recipient, amount, label, message);
+    }
+  };
+
+  const deepLink = getDeepLink();
 
   return (
     <div className="space-y-2">
       {/* Clickable Button */}
-      <a
-        href={deepLink}
+      <button
         onClick={handleClick}
+        disabled={isProcessing}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`
           block w-full p-4 rounded-xl text-white font-semibold text-center
           transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg
-          ${color} ${isHovered ? 'shadow-lg' : 'shadow-sm'}
+          disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100
+          ${isHovered ? 'shadow-lg' : 'shadow-sm'}
         `}
         style={{
           background: isHovered 
@@ -86,14 +139,18 @@ const ClickableDeepLinkButton = ({
         }}
       >
         <div className="flex items-center justify-center gap-3">
-          <span className="text-lg">{getWalletEmoji(walletName)}</span>
-          <span>Open {walletName} Wallet</span>
-          <ExternalLink className="w-4 h-4" />
+          {isProcessing ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <span className="text-lg">{getWalletEmoji(walletName)}</span>
+          )}
+          <span>{isProcessing ? 'Opening...' : `Open ${walletName}`}</span>
+          {!isProcessing && <ExternalLink className="w-4 h-4" />}
         </div>
         <div className="text-xs mt-1 opacity-80">
           {isMobile ? 'Tap to open app directly' : 'Click to open payment'}
         </div>
-      </a>
+      </button>
 
       {/* Copy Link Row */}
       <div className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg">
@@ -121,7 +178,8 @@ const getWalletEmoji = (walletName: string) => {
     case 'backpack': return '🎒';
     case 'solflare': return '☀️';
     case 'glow': return '✨';
-    case 'any wallet': return '🔗';
+    case 'any wallet': 
+    case 'universal': return '🔗';
     default: return '🔗';
   }
 };
@@ -149,6 +207,7 @@ const getGradientColors = (walletName: string) => {
         hover: '#1d4ed8 0%, #1e40af 100%' 
       };
     case 'any wallet':
+    case 'universal':
       return {
         normal: '#9945FF 0%, #14F195 100%',
         hover: '#8b5cf6 0%, #10b981 100%'
@@ -167,21 +226,22 @@ export default function BlinkForm() {
   const [label, setLabel] = useState('Support Me');
   const [message, setMessage] = useState('');
   
-  // Generated URLs
-  const [qrCodeUrl, setQrCodeUrl] = useState(''); // For QR code (direct wallet)
-  const [phantomLink, setPhantomLink] = useState(''); // Phantom deep link
-  const [backpackLink, setBackpackLink] = useState(''); // Backpack deep link
-  const [solflareLink, setSolflareLink] = useState(''); // Solflare deep link
-  const [glowLink, setGlowLink] = useState(''); // Glow deep link
+  // Generated URLs and state
+  const [universalPaymentLink, setUniversalPaymentLink] = useState('');
+  const [solanaPayURL, setSolanaPayURL] = useState('');
+  const [availableWallets, setAvailableWallets] = useState<string[]>([]);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState<{[key: string]: boolean}>({});
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
   const [showQR, setShowQR] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   const handleGenerate = async () => {
     setError('');
+    setStatus('');
     
     // Validation
     if (!recipient.trim()) {
@@ -207,43 +267,44 @@ export default function BlinkForm() {
     setIsGenerating(true);
     
     try {
-      // Check if mobile
+      // Check platform
       const platform = detectMobilePlatform();
       setIsMobile(platform.isMobile);
 
-      // Generate QR code URL (direct wallet opening)
-      const qrUrl = generateSolanaPayURL(recipient.trim(), amount, label.trim(), message.trim());
-      setQrCodeUrl(qrUrl);
+      // Generate universal payment link (shareable web URL)
+      const universalLink = generateUniversalPaymentLink(
+        recipient.trim(), 
+        amount, 
+        label.trim(), 
+        message.trim()
+      );
+      setUniversalPaymentLink(universalLink);
 
-      if (platform.isMobile) {
-        // Generate mobile deep links for each wallet
-        const phantomUrl = generatePhantomMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-        const backpackUrl = generateBackpackMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-        const solflareUrl = generateSolflareMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-        const glowUrl = generateGlowMobileDeepLink(recipient.trim(), amount, label.trim(), message.trim());
-        
-        setPhantomLink(phantomUrl);
-        setBackpackLink(backpackUrl);
-        setSolflareLink(solflareUrl);
-        setGlowLink(glowUrl);
-      } else {
-        // On desktop, all links are the same QR code URL
-        setPhantomLink(qrUrl);
-        setBackpackLink(qrUrl);
-        setSolflareLink(qrUrl);
-        setGlowLink(qrUrl);
-      }
+      // Generate Solana Pay URL (for QR codes and direct wallet opening)
+      const solanaPayUrl = generateSolanaPayURL(
+        recipient.trim(), 
+        amount, 
+        label.trim(), 
+        message.trim()
+      );
+      setSolanaPayURL(solanaPayUrl);
+
+      // Detect available wallets
+      const wallets = await detectAvailableWallets();
+      setAvailableWallets(wallets);
       
       console.log('Generated Links:', {
-        qrUrl,
+        universalLink,
+        solanaPayUrl,
         platform,
+        availableWallets: wallets,
         amount: amount,
         recipient: recipient.trim()
       });
       
     } catch (err) {
-      console.error('Error generating deep links:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate deep links');
+      console.error('Error generating payment links:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate payment links');
     } finally {
       setIsGenerating(false);
     }
@@ -272,19 +333,22 @@ export default function BlinkForm() {
     }
   };
 
+  const updateStatus = (newStatus: string) => {
+    setStatus(newStatus);
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white/90 backdrop-blur-sm shadow-2xl rounded-2xl border border-white/20">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-          ⚡ Solana Payment Link Generator
+          ⚡ Universal Solana Payment Links
         </h1>
-        <p className="text-gray-600">Create clickable wallet links that open instantly in any Solana wallet</p>
+        <p className="text-gray-600">Create shareable payment links that work seamlessly across all devices and wallets</p>
         <div className="flex justify-center gap-2 mt-2 text-xs text-gray-500">
-          <span>✅ Phantom</span>
-          <span>✅ Backpack</span>
-          <span>✅ Solflare</span>
-          <span>✅ Glow</span>
-          <span>✅ All wallets</span>
+          <span>✅ Universal Links</span>
+          <span>✅ Auto-Detection</span>
+          <span>✅ All Wallets</span>
+          <span>✅ Cross-Platform</span>
         </div>
       </div>
       
@@ -325,7 +389,7 @@ export default function BlinkForm() {
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>Min: 0.001 SOL</span>
-            <span>≈ ${(amount * 25).toFixed(3)} USD</span>
+            <span>{formatSolAmount(amount)}</span>
           </div>
         </div>
 
@@ -365,6 +429,14 @@ export default function BlinkForm() {
           </div>
         )}
 
+        {/* Status Display */}
+        {status && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700">
+            <Wallet className="w-4 h-4 flex-shrink-0" />
+            <span className="text-sm">{status}</span>
+          </div>
+        )}
+
         {/* Generate Button */}
         <button
           onClick={handleGenerate}
@@ -374,104 +446,162 @@ export default function BlinkForm() {
           {isGenerating ? (
             <>
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Generating Links...
+              Generating Universal Links...
             </>
           ) : (
             <>
-              <Smartphone className="w-5 h-5" />
-              Generate Clickable Wallet Links
+              <Globe className="w-5 h-5" />
+              Generate Universal Payment Links
             </>
           )}
         </button>
       </div>
 
       {/* Results */}
-      {qrCodeUrl && (
+      {universalPaymentLink && (
         <div className="mt-8 space-y-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">🎉 Clickable Payment Links Generated!</h3>
-            <p className="text-sm text-gray-600">Amount: <strong>{amount} SOL</strong></p>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">🎉 Universal Payment Links Generated!</h3>
+            <p className="text-sm text-gray-600">Amount: <strong>{formatSolAmount(amount)}</strong></p>
             <p className="text-xs text-gray-500 mt-1">
-              {isMobile ? 'Tap any button to open directly in that wallet app' : 'Click any button to open payment (mobile users will get direct wallet opening)'}
+              {isMobile ? 'Tap buttons to open wallet apps directly' : 'Share links or use QR codes for mobile payments'}
             </p>
           </div>
 
-          {/* QR Code Section */}
-          <div className="text-center">
-            <button
-              onClick={() => setShowQR(!showQR)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-lg transition-colors text-sm font-medium"
-            >
-              <QrCode className="w-4 h-4" />
-              {showQR ? 'Hide QR Code' : 'Show QR Code (Alternative)'}
-            </button>
-            
-            {showQR && (
-              <div className="mt-6 inline-block p-4 bg-white rounded-lg shadow-sm">
-                <QRCodeDisplay value={qrCodeUrl} size={200} />
-                <p className="text-xs text-gray-500 mt-6">
-                  Scan with any Solana wallet app
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Universal Wallet Button */}
+          {/* Universal Payment Handler */}
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-4 text-center">
-              {isMobile ? '📱 Click to Open Wallet App:' : '💻 Clickable Payment Link:'}
+              🚀 Smart Payment Buttons (Auto-Detection):
             </h4>
             <div className="space-y-4">
               
-              {/* Universal Solana Pay Button */}
+              {/* Universal Handler Button */}
               <ClickableDeepLinkButton
-                deepLink={qrCodeUrl}
-                walletName="Any Wallet"
-                color="bg-gradient-to-r from-gray-600 to-gray-700"
+                recipient={recipient.trim()}
+                amount={amount}
+                label={label.trim()}
+                message={message.trim()}
+                walletName="Universal"
                 isMobile={isMobile}
                 onCopy={copyToClipboard}
+                onStatusUpdate={updateStatus}
               />
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                ⭐ Universal link - works with all Solana wallets
-              </p>
 
-              {/* Universal Link Display */}
-              <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <h5 className="text-sm font-semibold text-gray-700 mb-2">Universal Wallet Link:</h5>
-                <div className="bg-white p-3 rounded border font-mono text-xs break-all text-gray-600">
-                  {qrCodeUrl}
+              {/* Available Wallet Buttons */}
+              {isMobile && availableWallets.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {availableWallets.slice(0, 4).map((wallet) => (
+                    <div key={wallet} className="col-span-1">
+                      <ClickableDeepLinkButton
+                        recipient={recipient.trim()}
+                        amount={amount}
+                        label={label.trim()}
+                        message={message.trim()}
+                        walletName={wallet.charAt(0).toUpperCase() + wallet.slice(1)}
+                        isMobile={isMobile}
+                        onCopy={copyToClipboard}
+                        onStatusUpdate={updateStatus}
+                      />
+                    </div>
+                  ))}
                 </div>
-                <button
-                  onClick={() => copyToClipboard(qrCodeUrl, 'universal')}
-                  className="mt-2 w-full px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded text-sm transition-colors flex items-center justify-center gap-2"
-                >
-                  {copied.universal ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied.universal ? 'Copied!' : 'Copy Universal Link'}
-                </button>
-              </div>
-
+              )}
             </div>
           </div>
 
-          {/* Updated Usage Instructions */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="text-sm font-semibold text-blue-800 mb-2">✨ How to use this universal wallet link:</h4>
+          {/* Shareable Links Section */}
+          <div className="space-y-4">
+            {/* Universal Payment Link */}
+            <div className="p-4 bg-white border border-gray-200 rounded-lg">
+              <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                Universal Payment Page:
+              </h5>
+              <div className="bg-gray-50 p-3 rounded border font-mono text-xs break-all text-gray-600 mb-2">
+                {universalPaymentLink}
+              </div>
+              <button
+                onClick={() => copyToClipboard(universalPaymentLink, 'universal')}
+                className="w-full px-3 py-2 bg-blue-100 hover:bg-blue-200 rounded text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                {copied.universal ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied.universal ? 'Copied!' : 'Copy Universal Link'}
+              </button>
+              <p className="text-xs text-gray-500 mt-2">
+                Share this link anywhere - it creates a payment page that works on all devices
+              </p>
+            </div>
+
+            {/* Advanced Options */}
+            <div className="text-center">
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-sm text-gray-600 hover:text-gray-800 underline"
+              >
+                {showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options'}
+              </button>
+            </div>
+
+            {showAdvanced && (
+              <>
+                {/* Direct Solana Pay URL */}
+                <div className="p-4 bg-white border border-gray-200 rounded-lg">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-2">Direct Solana Pay URL:</h5>
+                  <div className="bg-gray-50 p-3 rounded border font-mono text-xs break-all text-gray-600 mb-2">
+                    {solanaPayURL}
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(solanaPayURL, 'solpay')}
+                    className="w-full px-3 py-2 bg-green-100 hover:bg-green-200 rounded text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    {copied.solpay ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied.solpay ? 'Copied!' : 'Copy Solana Pay URL'}
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Direct wallet protocol URL - for QR codes and wallet integrations
+                  </p>
+                </div>
+
+                {/* QR Code Section */}
+                <div className="text-center">
+                  <button
+                    onClick={() => setShowQR(!showQR)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    {showQR ? 'Hide QR Code' : 'Show QR Code'}
+                  </button>
+                  
+                  {showQR && (
+                    <div className="mt-6 inline-block p-6 bg-white rounded-lg shadow-sm border">
+                      <QRCodeDisplay value={solanaPayURL} size={200} />
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs text-gray-500">
+                          Scan with any Solana wallet app
+                        </p>
+                        <button
+                          onClick={() => copyToClipboard(solanaPayURL, 'qr')}
+                          className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs transition-colors"
+                        >
+                          {copied.qr ? 'Copied!' : 'Copy QR URL'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Usage Instructions */}
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-semibold text-blue-800 mb-2">✨ How to use these payment links:</h4>
             <ul className="text-xs text-blue-700 space-y-1">
-              {isMobile ? (
-                <>
-                  <li>• <strong>Universal Button:</strong> Tap "Any Wallet" to open your default Solana wallet app</li>
-                  <li>• <strong>Works with All Wallets:</strong> Compatible with Phantom, Backpack, Solflare, Glow, and more</li>
-                  <li>• <strong>Share Link:</strong> Copy the universal link to share via WhatsApp, Telegram, email, etc.</li>
-                  <li>• <strong>QR Alternative:</strong> Use QR code if the button doesn't work</li>
-                </>
-              ) : (
-                <>
-                  <li>• <strong>Mobile Compatibility:</strong> When shared, this button opens wallet apps directly on mobile</li>
-                  <li>• <strong>Desktop Support:</strong> Shows QR code or redirects appropriately on desktop</li>
-                  <li>• <strong>Universal Link:</strong> Works with all Solana wallets - no need for wallet-specific links</li>
-                  <li>• <strong>Easy Sharing:</strong> Copy the link for social media, email, messaging apps</li>
-                </>
-              )}
+              <li>• <strong>Universal Page:</strong> Share the first link to create a payment page that works everywhere</li>
+              <li>• <strong>Smart Detection:</strong> Automatically detects and opens the best available wallet</li>
+              <li>• <strong>Cross-Platform:</strong> Works on mobile apps, desktop extensions, and web wallets</li>
+              <li>• <strong>One Link for All:</strong> No need to create separate links for different wallets</li>
+              <li>• <strong>QR Alternative:</strong> Use QR codes for in-person payments or when links don't work</li>
             </ul>
           </div>
 

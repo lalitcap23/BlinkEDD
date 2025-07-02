@@ -7,7 +7,6 @@ import {
 } from '@solana/web3.js';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Action metadata interface
 interface ActionGetResponse {
   icon: string;
   title: string;
@@ -26,18 +25,16 @@ interface ActionGetResponse {
   };
 }
 
-// Transaction response interface
 interface ActionPostResponse {
-  transaction: string; // base64 encoded transaction
+  transaction: string; 
   message?: string;
 }
 
-// Error response interface
 interface ActionError {
   message: string;
 }
 
-// Headers for CORS and Solana Actions
+
 const headers = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
@@ -100,13 +97,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST handler - Creates and returns transaction
 export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const body = await request.json();
     
-    // Get parameters from URL
     const recipient = searchParams.get('recipient');
     const amount = searchParams.get('amount');
     
