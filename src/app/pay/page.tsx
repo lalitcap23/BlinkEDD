@@ -1,18 +1,11 @@
-'use client';
-
-import { useSearchParams } from 'next/navigation';
+// src/app/pay/page.tsx
+import { Suspense } from 'react';
+import PayClient from './payClient';
 
 export default function PayPage() {
-  const searchParams = useSearchParams();
-
-  const to = searchParams.get('to');
-  const amount = searchParams.get('amount');
-  const label = searchParams.get('label');
-
   return (
-    <div>
-      <h1>Pay Page</h1>
-     
-    </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <PayClient />
+    </Suspense>
   );
 }
