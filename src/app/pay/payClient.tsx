@@ -1,20 +1,40 @@
-// src/app/pay/PayClient.tsx
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { createUniversalPaymentButton } from '../utils/generateBlink';
 
 export default function PayClient() {
   const searchParams = useSearchParams();
-  const to = searchParams.get('to');
-  const amount = searchParams.get('amount');
-  const label = searchParams.get('label');
+  const to = searchParams.get('to') || '';
+  const amount = parseFloat(searchParams.get('amount') || '0');
+  const label = searchParams.get('label') || '';
+  const buttonContainerRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <div style={{ backgroundColor: 'white', color: 'black', height: '100vh', padding: '2rem' }}>
-      <h1>Pay Page</h1>
-      <p>To: {to}</p>
-      <p>Amount: {amount}</p>
-      <p>Label: {label}</p>
-    </div>
-  );
-}
+ useEffect(() => {
+  if (!to || !amount || amount <= 0) {
+    if (buttonContainerRef.current) {
+      buttonContainerRef.current.innerHTML = '<p style="color: red;">Invalid payment parameters</p>';
+    }
+    return;
+  }
+  
+  try {
+    const button = createUniversalPaymentButton({
+      recipient: to,
+      amount,
+      label,
+      message: 'You are awesome!'
+    });
+    
+    if (buttonContainerRef.current) {
+      buttonContainerRef.current.innerHTML = '';
+      buttonContainerRef.current.appendChild(button);
+    }
+  } catch (error) {
+    console.error('Error creating payment button:', error);
+    if (buttonContainerRef.current) {
+      buttonContainerRef.current.innerHTML = '<p style="color: red;">Error creating payment button</p>';
+    }
+  }
+}, [to, amount, label]);}
