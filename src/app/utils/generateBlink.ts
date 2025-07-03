@@ -201,7 +201,13 @@ export function detectAvailableWallets(): Promise<string[]> {
 /**
  * Generate Solana Pay URL (works with all wallets)
  */
-export function generateSolanaPayURL(recipient: string, amount: number, label?: string, message?: string): string {
+export function generateSolanaPayURL(
+  recipient: string,
+  amount: number,
+  label?: string,
+  message?: string,
+  options?: { forceHttps?: boolean }
+): string {
   try {
     new PublicKey(recipient);
     const params = new URLSearchParams();
@@ -212,7 +218,13 @@ export function generateSolanaPayURL(recipient: string, amount: number, label?: 
     if (message) {
       params.append('message', message);
     }
-    return `solana:${recipient}?${params.toString()}`;
+    if (options?.forceHttps) {
+      // Backpack and some wallets require the HTTPS Solana Pay spec
+      params.append('recipient', recipient);
+      return `https://solana.com/pay?${params.toString()}`;
+    } else {
+      return `solana:${recipient}?${params.toString()}`;
+    }
   } catch (error) {
     console.error('Error generating Solana Pay URL:', error);
     throw new Error('Invalid recipient address');
@@ -243,9 +255,14 @@ export function generatePhantomMobileDeepLink(
 /**
  * Generate Backpack mobile deep link
  */
-export function generateBackpackMobileDeepLink(recipient: string, amount: number, label?: string, message?: string): string {
-  const solanaPayUrl = generateSolanaPayURL(recipient, amount, label, message);
-  return `backpack://browse/${encodeURIComponent(solanaPayUrl)}`;
+export function generateBackpackMobileDeepLink(
+  recipient: string,
+  amount: number,
+  label?: string,
+  message?: string
+): string {
+  // Return the Solana Pay URI directly
+  return generateSolanaPayURL(recipient, amount, label, message);
 }
 
 /**
@@ -451,7 +468,7 @@ export function createUniversalPaymentHandler(): void {
             font-size: 12px;
             word-break: break-all;
           ">
-            ${generateSolanaPayURL(paymentParams.recipient, paymentParams.amount, paymentParams.label, paymentParams.message)}
+            ${generateSolanaPayURL(paymentParams.recipient, paymentParams.amount, paymentParams.label, paymentParams.message, { forceHttps: true })}
           </div>
         </div>
         <p style="color: #333; font-size: 14px;">Scan this QR code with your mobile wallet</p>
