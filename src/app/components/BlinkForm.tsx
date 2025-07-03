@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import StatusAlert from './StatusAlert';
 import WalletButton from './WalletButton';
 import ShareableLinks from './ShareableLinks';
-import { Globe } from 'lucide-react';
+import { Globe, Sparkles, ArrowRight } from 'lucide-react';
 import {
     validateSolanaAddress,
     detectMobilePlatform,
@@ -51,9 +51,6 @@ export default function BlinkForm() {
 
             // Set status to show success
             setStatus('✅ Universal payment links generated successfully!');
-
-            // Note: We're NOT calling detectAvailableWallets() here to avoid triggering wallet connections
-            // We'll only detect wallets when user clicks "Show Wallets" button
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate payment links');
         } finally {
@@ -95,143 +92,192 @@ export default function BlinkForm() {
     const updateStatus = (newStatus: string) => setStatus(newStatus);
 
     return (
-        <div className="max-w-2xl mx-auto p-6 bg-white/90 backdrop-blur-sm shadow-2xl rounded-2xl border border-white/20">
-            <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-                    ⚡ Universal Solana Payment Links
-                </h1>
-                <p className="text-gray-600">Create shareable payment links that work seamlessly across all devices and wallets</p>
-                <div className="flex justify-center gap-2 mt-2 text-xs text-gray-500">
-                    <span>✅ Universal Links</span>
-                    <span>✅ Auto-Detection</span>
-                    <span>✅ All Wallets</span>
-                    <span>✅ Cross-Platform</span>
-                </div>
-            </div>
-
-            <div className="space-y-6">
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Recipient Wallet Address *</label>
-                    <input
-                        type="text"
-                        placeholder="Enter Solana wallet address (44 characters)"
-                        className="w-full border text-black border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-sm font-mono"
-                        value={recipient}
-                        onChange={e => setRecipient(e.target.value)}
-                    />
-                    {recipient && !validateSolanaAddress(recipient) && (
-                        <p className="text-xs text-red-500 mt-1">Invalid Solana address format</p>
-                    )}
-                </div>
-
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Amount (SOL) *</label>
-                    <input
-                        type="number"
-                        placeholder="0.001"
-                        className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-black"
-                        value={amount}
-                        onChange={e => setAmount(isNaN(parseFloat(e.target.value)) ? 0 : parseFloat(e.target.value))}
-                        min="0"
-                        step="0.001"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>Min: 0.001 SOL</span>
-                        <span>{formatSolAmount(amount)}</span>
-                    </div>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Label</label>
-                    <input
-                        type="text"
-                        placeholder="e.g., Buy me a coffee, Tip for content"
-                        className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-black"
-                        value={label}
-                        onChange={e => setLabel(e.target.value)}
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Message (Optional)</label>
-                    <textarea
-                        placeholder="Add a personal message..."
-                        className="w-full border border-gray-300 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none text-black"
-                        rows={3}
-                        value={message}
-                        onChange={e => setMessage(e.target.value)}
-                    />
-                </div>
-
-                <StatusAlert type={error ? 'error' : 'status'} message={error || status} />
-
-                <button
-                    onClick={handleGenerate}
-                    disabled={isGenerating || !recipient.trim() || amount <= 0 || !validateSolanaAddress(recipient)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg disabled:hover:scale-100 disabled:hover:shadow-none flex items-center justify-center gap-2"
-                >
-                    {isGenerating ? (
-                        <>
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            Generating Universal Links...
-                        </>
-                    ) : (
-                        <>
-                            <Globe className="w-5 h-5" />
-                            Generate Universal Payment Links
-                        </>
-                    )}
-                </button>
-            </div>
-
-            {universalPaymentLink && (
-                <div className="mt-8 space-y-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
+        <div className="max-w-4xl mx-auto">
+            {/* Main Form Card */}
+            <div className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-3xl border border-white/20 overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-8 text-white">
                     <div className="text-center">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">🎉 Universal Payment Links Generated!</h3>
-                        <p className="text-sm text-gray-600">Amount: <strong>{formatSolAmount(amount)}</strong></p>
-                        <p className="text-xs text-gray-500 mt-1">
-                            {isMobile ? 'Tap buttons to open wallet apps directly' : 'Share links or use QR codes for mobile payments'}
+                        <div className="flex items-center justify-center gap-2 mb-4">
+                            <Sparkles className="w-8 h-8" />
+                            <h2 className="text-3xl md:text-4xl font-bold">Payment Link Generator</h2>
+                        </div>
+                        <p className="text-purple-100 text-lg">
+                            Create universal payment links in seconds
                         </p>
+                        <div className="flex flex-wrap justify-center gap-3 mt-4 text-sm">
+                            <span className="bg-white/20 px-3 py-1 rounded-full">✅ All Wallets</span>
+                            <span className="bg-white/20 px-3 py-1 rounded-full">✅ All Devices</span>
+                            <span className="bg-white/20 px-3 py-1 rounded-full">✅ Instant</span>
+                            <span className="bg-white/20 px-3 py-1 rounded-full">✅ Free</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Form Content */}
+                <div className="p-8 md:p-12">
+                    <div className="space-y-8">
+                        {/* Recipient Address */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">
+                                Recipient Wallet Address *
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Enter Solana wallet address (44 characters)"
+                                    className="w-full border-2 border-gray-200 text-black p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-sm font-mono bg-gray-50 hover:bg-white"
+                                    value={recipient}
+                                    onChange={e => setRecipient(e.target.value)}
+                                />
+                                {recipient && validateSolanaAddress(recipient) && (
+                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                            <span className="text-white text-xs">✓</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            {recipient && !validateSolanaAddress(recipient) && (
+                                <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
+                                    <span>⚠️</span>
+                                    Invalid Solana address format
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Amount and Label Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 mb-3">
+                                    Amount (SOL) *
+                                </label>
+                                <input
+                                    type="number"
+                                    placeholder="0.001"
+                                    className="w-full border-2 border-gray-200 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-black bg-gray-50 hover:bg-white"
+                                    value={amount}
+                                    onChange={e => setAmount(isNaN(parseFloat(e.target.value)) ? 0 : parseFloat(e.target.value))}
+                                    min="0"
+                                    step="0.001"
+                                />
+                                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                                    <span>Min: 0.001 SOL</span>
+                                    <span className="font-semibold">{formatSolAmount(amount)}</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 mb-3">
+                                    Payment Label
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., Buy me a coffee, Tip for content"
+                                    className="w-full border-2 border-gray-200 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all text-black bg-gray-50 hover:bg-white"
+                                    value={label}
+                                    onChange={e => setLabel(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Message */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">
+                                Message (Optional)
+                            </label>
+                            <textarea
+                                placeholder="Add a personal message for your payment request..."
+                                className="w-full border-2 border-gray-200 p-4 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all resize-none text-black bg-gray-50 hover:bg-white"
+                                rows={4}
+                                value={message}
+                                onChange={e => setMessage(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Status Alert */}
+                        <StatusAlert type={error ? 'error' : 'status'} message={error || status} />
+
+                        {/* Generate Button */}
+                        <button
+                            onClick={handleGenerate}
+                            disabled={isGenerating || !recipient.trim() || amount <= 0 || !validateSolanaAddress(recipient)}
+                            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold py-5 px-8 rounded-xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-2xl disabled:hover:scale-100 disabled:hover:shadow-none flex items-center justify-center gap-3 text-lg"
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    Generating Universal Links...
+                                </>
+                            ) : (
+                                <>
+                                    <Globe className="w-6 h-6" />
+                                    Generate Universal Payment Links
+                                    <ArrowRight className="w-5 h-5" />
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Results Section */}
+            {universalPaymentLink && (
+                <div className="mt-8 bg-gradient-to-r from-green-50 via-blue-50 to-purple-50 rounded-3xl border-2 border-green-200 overflow-hidden">
+                    {/* Success Header */}
+                    <div className="bg-gradient-to-r from-green-500 to-blue-500 p-6 text-white">
+                        <div className="text-center">
+                            <div className="text-4xl mb-2">🎉</div>
+                            <h3 className="text-2xl font-bold mb-2">Payment Links Generated!</h3>
+                            <p className="text-green-100">
+                                Amount: <strong>{formatSolAmount(amount)}</strong>
+                            </p>
+                            <p className="text-xs text-green-100 mt-2">
+                                {isMobile ? 'Tap buttons to open wallet apps directly' : 'Share links or use QR codes for mobile payments'}
+                            </p>
+                        </div>
                     </div>
 
-                    <ShareableLinks
-                        universalPaymentLink={universalPaymentLink}
-                        solanaPayURL={solanaPayURL}
-                        copied={copied}
-                        copyToClipboard={copyToClipboard}
-                        amount={amount}
-                        showAdvanced={showAdvanced}
-                        setShowAdvanced={setShowAdvanced}
-                        showQR={showQR}
-                        setShowQR={setShowQR}
-                        label={label}
-                        message={message}
-                    />
+                    {/* Links Content */}
+                    <div className="p-8">
+                        <ShareableLinks
+                            universalPaymentLink={universalPaymentLink}
+                            solanaPayURL={solanaPayURL}
+                            copied={copied}
+                            copyToClipboard={copyToClipboard}
+                            amount={amount}
+                            showAdvanced={showAdvanced}
+                            setShowAdvanced={setShowAdvanced}
+                            showQR={showQR}
+                            setShowQR={setShowQR}
+                            label={label}
+                            message={message}
+                        />
 
-                    <button
-                        className="mt-4 w-full bg-gradient-to-r from-green-400 to-blue-400 hover:from-green-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl transition-all"
-                        onClick={handleShowWallets}
-                    >
-                        Show Wallets
-                    </button>
+                        <button
+                            className="mt-6 w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-bold py-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02]"
+                            onClick={handleShowWallets}
+                        >
+                            {showWallets ? 'Hide Wallet Options' : 'Show Wallet Options'}
+                        </button>
 
-                    {showWallets && (
-                        <div className="mt-4 space-y-4">
-                            <WalletButton
-                                recipient={recipient.trim()}
-                                amount={amount}
-                                label={label.trim()}
-                                message={message.trim()}
-                                walletName="Universal"
-                                isMobile={isMobile}
-                                onCopy={copyToClipboard}
-                                onStatusUpdate={updateStatus}
-                            />
-                            {isMobile && availableWallets.length > 0 && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    {availableWallets.slice(0, 4).map(wallet => (
-                                        <div key={wallet} className="col-span-1">
+                        {showWallets && (
+                            <div className="mt-6 space-y-4">
+                                <WalletButton
+                                    recipient={recipient.trim()}
+                                    amount={amount}
+                                    label={label.trim()}
+                                    message={message.trim()}
+                                    walletName="Universal"
+                                    isMobile={isMobile}
+                                    onCopy={copyToClipboard}
+                                    onStatusUpdate={updateStatus}
+                                />
+                                {isMobile && availableWallets.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {availableWallets.slice(0, 4).map(wallet => (
                                             <WalletButton
+                                                key={wallet}
                                                 recipient={recipient.trim()}
                                                 amount={amount}
                                                 label={label.trim()}
@@ -241,20 +287,20 @@ export default function BlinkForm() {
                                                 onCopy={copyToClipboard}
                                                 onStatusUpdate={updateStatus}
                                             />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {Object.keys(copied).some(key => copied[key]) && (
-                        <div className="text-center">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                Copied!
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {Object.keys(copied).some(key => copied[key]) && (
+                            <div className="text-center mt-6">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                    ✅ Copied to clipboard!
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
