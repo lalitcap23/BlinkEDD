@@ -1,10 +1,12 @@
-import { Suspense } from 'react';
-import PayClient from './payClient';
+'use client';
 
-export default function PayPage() {
+import React from 'react';
+
+export default function PayClient() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <PayClient />
-    </Suspense>
+    <div>
+      {/* Put your payment UI or logic here */}
+      <h1>This is the Pay Client Component</h1>
+    </div>
   );
 }
