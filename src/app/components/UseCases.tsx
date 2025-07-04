@@ -5,11 +5,7 @@ import {
   Mic, 
   Heart, 
   Gift, 
-  Gamepad2,
-  Music,
-  Camera,
-  BookOpen,
-  Utensils
+  Gamepad2
 } from 'lucide-react';
 
 export default function UseCases() {
@@ -17,7 +13,7 @@ export default function UseCases() {
     {
       icon: Users,
       title: "Meetups & Events",
-      description: "Perfect for Solana meetups, conferences, and community events. Share payment links for tickets, donations, or tips.",
+      description: "Help in local Solana meetups, conferences, and community gatherings. Share links for tickets, donations, or tips.",
       examples: ["Event tickets", "Speaker tips", "Community donations"],
       color: "from-purple-500 to-purple-600"
     },
@@ -81,7 +77,6 @@ export default function UseCases() {
           </p>
         </div>
 
-        {/* Main Use Cases */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {useCases.map((useCase, index) => (
             <div
@@ -105,7 +100,6 @@ export default function UseCases() {
           ))}
         </div>
 
-        {/* Platform Compatibility */}
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-3xl p-8 md:p-12">
           <div className="text-center mb-8">
             <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
@@ -129,26 +123,21 @@ export default function UseCases() {
           </div>
         </div>
 
-        {/* Success Stories */}
         <div className="mt-16 text-center">
-          <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8">
-            Real Success Stories
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
-              <div className="text-4xl mb-4">🎪</div>
-              <h4 className="font-semibold mb-2">Solana Meetup NYC</h4>
-              <p className="text-gray-600 text-sm">Raised $2,500 in tips for speakers using QR codes at their monthly meetup</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
               <div className="text-4xl mb-4">🎨</div>
-              <h4 className="font-semibold mb-2">NFT Artist</h4>
-              <p className="text-gray-600 text-sm">Increased Twitter engagement by 300% using payment links for art commissions</p>
+              <h4 className="font-semibold mb-2 text-gray-800">NFT Artist</h4>
+              <p className="text-gray-600 text-sm">
+                Increased Twitter engagement by 300% using payment links for art commissions
+              </p>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
               <div className="text-4xl mb-4">🎮</div>
-              <h4 className="font-semibold mb-2">Gaming Streamer</h4>
-              <p className="text-gray-600 text-sm">Simplified donations and increased viewer support by 150% on Twitch</p>
+              <h4 className="font-semibold mb-2 text-gray-800">Gaming Streamer</h4>
+              <p className="text-gray-600 text-sm">
+                Simplified donations and increased viewer support by 150% on Twitch
+              </p>
             </div>
           </div>
         </div>

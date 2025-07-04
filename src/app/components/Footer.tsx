@@ -36,7 +36,7 @@ export default function Footer() {
                 <ExternalLink className="w-4 h-4" />
               </a>
               <a
-                href="https://twitter.com"
+                href="https://x.com/lalitcap?t=zqvxheNtth4g3ih9-jTK_w&s=09"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition-colors"

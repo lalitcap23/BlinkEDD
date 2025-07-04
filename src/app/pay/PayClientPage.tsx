@@ -183,7 +183,7 @@ export default function PayClientPage() {
                   <div className="text-center p-4 bg-blue-50 rounded-xl">
                     <Globe className="w-6 h-6 text-blue-600 mx-auto mb-2" />
                     <p className="text-sm text-blue-700">
-                      On desktop? The payment link will open your default Solana wallet or browser extension.
+                      On desktop? The payment button only works in the mobile phones and won't for the browser extention (scan the Qr).
                     </p>
                   </div>
                 )}

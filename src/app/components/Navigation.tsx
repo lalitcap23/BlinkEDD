@@ -74,7 +74,7 @@ export default function Navigation() {
               <Github className="w-5 h-5" />
             </a>
             <a
-              href="https://twitter.com"
+              href="https://x.com/lalitcap?t=zqvxheNtth4g3ih9-jTK_w&s=09"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-600 hover:text-purple-600 transition-colors"
@@ -132,7 +132,7 @@ export default function Navigation() {
                   <Github className="w-5 h-5" />
                 </a>
                 <a
-                  href="https://twitter.com"
+                  href="https://x.com/lalitcap?t=zqvxheNtth4g3ih9-jTK_w&s=09"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-600 hover:text-purple-600 transition-colors"
