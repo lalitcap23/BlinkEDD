@@ -72,7 +72,7 @@ export default function Hero() {
                 <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Globe className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Universal Links</h3>
+                <h3 className="text-xl font-semibold mb-2 text-black">Universal Links</h3>
                 <p className="text-gray-600">Works on any device, any wallet, anywhere in the world</p>
               </div>
               
@@ -80,7 +80,7 @@ export default function Hero() {
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Smartphone className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Mobile Optimized</h3>
+                <h3 className="text-xl font-semibold mb-2 text-black ">Mobile Optimized</h3>
                 <p className="text-gray-600">Perfect mobile experience with automatic wallet detection</p>
               </div>
               
@@ -88,7 +88,7 @@ export default function Hero() {
                 <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Zap className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Instant Setup</h3>
+                <h3 className="text-xl font-semibold mb-2 text-black">Instant Setup</h3>
                 <p className="text-gray-600">Generate payment links in seconds, no technical knowledge required</p>
               </div>
             </div>
